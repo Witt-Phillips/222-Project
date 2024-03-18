@@ -1,0 +1,19 @@
+---
+title: "visualization"
+output: html_document
+date: "2024-03-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#install.packages("readxl")
+#install.packages("ggplot2")
+
+library(readxl)
+library(ggplot2)
+
+df <- read_excel("dataset.xlsx")
+head(df)
+```
+
+
