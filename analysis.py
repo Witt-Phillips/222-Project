@@ -48,7 +48,22 @@ def preprocess(data):
     data = data.dropna(axis=0, how='any')
     return data
 
-def corr_plot():
+def corr_plot(data):
+    corr = data.corr()
+   
+    figure = ff.create_annotated_heatmap(
+         z = corr.to_numpy(),
+        x = corr.columns.to_list(),
+        y = corr.columns.to_list(),
+        annotation_text=corr.round(2).to_numpy(),
+        colorscale='Magma',
+        showscale=True
+    )
+    figure.update_layout(
+        title_text = 'Correlation Heatmap',
+        title_x = 0.4
+    )
+    return figure
 
 def lsr(data, predict):
     features = data.drop('Survived', axis=1)
@@ -110,9 +125,11 @@ def lsr(data, predict):
 #lsr to find variables that are predictive of survival?
 
 if __name__ == '__main__':
+    #Setup app
     st.title('The Unsinkable Ship: Who survived the Titanic?')
     st.image("titanic_drawing.jpeg", caption="Titanic Sinking, Willy Stöwer. Wikimedia Commons.", use_column_width=True)
     st.write('The [Titanic](https://www.history.com/topics/early-20th-century-us/titanic#unsinkable-titanic-s-fatal-flaws), deemed "practically unsinkable" by experts, sunk in 1912. More than 1,500 of the 2,240 passengers onboard were lost. Here, we use passenger data to explore the factors that contributed to surival. Select features to see how well they predict survial via least squares regression.')
+    
     # Select columns
     st.header('Select features')            
     active_cols = select_features()
@@ -123,7 +140,12 @@ if __name__ == '__main__':
     if st.button('Run least squares regression'):
         st.session_state['lsr_button'] = True
 
+    #Process data, plot, and start lsr module
     if st.session_state['lsr_button']:
         df = df.loc[:, active_cols]
         df = preprocess(df)
+
+        #Plot heatmap
+        st.plotly_chart(corr_plot(df))
+
         lsr(df, True)
