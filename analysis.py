@@ -1,15 +1,14 @@
+import streamlit as st
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 
-
 #Read & drop unused columns
 df = pd.read_csv('data.csv')
 df.drop(['PassengerId', 'Name', 'Ticket', 'Cabin', 'Embarked'], axis=1, inplace=True)
 og_df = df
-#print(df.head())
 
 def preprocess(data):
     # Normalize continuous variables (if they exist)
@@ -24,7 +23,6 @@ def preprocess(data):
         data['Sex'] = data['Sex'].replace({'female': 0, 'male': 1})
     
     data = data.dropna(axis=0, how='any')
-    #print(data.head())
     return data
 
 def lsr(data, predict):
@@ -33,8 +31,6 @@ def lsr(data, predict):
     
     #split training/ testing sets 75/25
     f_train, f_test, t_train, t_test = train_test_split(features, target, test_size=0.25, random_state=1)
-
-    #print(f_train.head())
     
     #Fit & evaluate model
     m = LinearRegression()
@@ -43,36 +39,82 @@ def lsr(data, predict):
     ms = mean_squared_error(t_test, pred)
     r2 = r2_score(t_test, pred)
 
-    print("\nEntering summary stats module...")
-    print("Model trained on:")
-    for col in features.columns:
-        print(f"*{col}")
-    print(f"Mean Squared Error: {round(ms, 2)}\nr2 score: {round(r2, 2)}")
+    # st.write('Features considered:')
+    # for colname in features.columns:
+    #     st.write(colname)
+    #st.write(f"Mean Squared Error: {round(ms, 2)}\nr2 score: {round(r2, 2)}")
+
+    st.markdown(f"""
+        <p style='font-size: 25px;'>
+            Mean Squared Error: <strong>{round(ms, 2)}</strong><br>
+            r<sup>2</sup> score: <strong>{round(r2, 2)}</strong>
+        </p>
+        """, unsafe_allow_html=True)
+
+#TODO: explain how we calculate/ interpret these values w/ linear algebra
+
+#TODO: on the right, we could plot correlations or the lsr
+
+    #Survival Score Prediction
+    st.header('Survival Score by Features')
+    st.write("Provide information on an individual to see their odds of survival on the Titanic.")
     
-    if predict:
-        print("\nEntering prediction module...")
-        print("When prompted, provide information on an individual to see their odds of survival on the Titanic.")
-        
-        inputs = {}
-        for col in features.columns:
-            inp = input(f"Enter {col}: ")
-            inputs[col] = [inp]
+    if 'inputs' not in st.session_state:
+        st.session_state['inputs'] = {}
 
-        inp_df = pd.DataFrame(inputs)
+    inputs = {}
+    for col in features.columns:
+        st.session_state['inputs'][col] = st.number_input(f"Enter {col}: ", key=f"input_{col}", value=st.session_state['inputs'].get(col, 0))
 
+    if st.button('Predict'):
+        inp_df = pd.DataFrame([st.session_state['inputs']])
         output = m.predict(inp_df)
-        print(f"Predicted survival value: {round(output[0], 2)}")
+        #st.write(f"Predicted survival value: {round(output[0], 2)}")
+        st.markdown(f"""
+        <p style='font-size: 25px;'>
+            Predicted survival value: <strong>{round(output[0], 2)}</strong><br>
+        </p>
+        """, unsafe_allow_html=True)
+    
+#TODO: interpret this prediction & explain what it means
+        
+#TODO: maybe a little exploratory data section? Like do some examples and show how we can use
+#lsr to find variables that are predictive of survival?
 
 if __name__ == '__main__':
-    # Read input && create active dataframe (adf) from selected cols
-    col_input = input("Enter prediction cols by #, separated by space: ")
-    idxs = [int(num) for num in col_input.split()]
-    active_cols = [df.columns[0]] + [df.columns[idx] for idx in idxs]
-    df = df.loc[:, active_cols]
-    #print(adf.head())
+    st.title('The Unsinkable Ship: Who survived the Titanic?')
+    st.image("titanic_drawing.jpeg", caption="Titanic Sinking, Willy Stöwer. Wikimedia Commons.", use_column_width=True)
+    st.write('The [Titanic](https://www.history.com/topics/early-20th-century-us/titanic#unsinkable-titanic-s-fatal-flaws), deemed "practically unsinkable" by experts, sunk in 1912. More than 1,500 of the 2,240 passengers onboard were lost. Here, we use passenger data to explore the factors that contributed to surival. Select features to see how well they predict survial via least squares regression.')
+    # Select columns
+    vars = {
+        "Class": "Pclass",
+        "Age": "Age",
+        "\# of Siblings/Spouse Onboard": "SibSp",
+        "\# of Parents/Children Onboard": "Parch",
+        "Fare": "Fare"
+    }
 
-    #if false, don't give prediction option
-    df = preprocess(df)
-    lsr(df, True)
+    st.header('Select features')
 
-    #print(df.head())
+    if 'active_cols' not in st.session_state:
+        st.session_state['active_cols'] = ['Survived']
+
+    for human_var, df_var in vars.items():
+        if st.checkbox(human_var, key=df_var):
+            if df_var not in st.session_state['active_cols']:
+                st.session_state['active_cols'].append(df_var)
+        else:
+            if df_var in st.session_state['active_cols']:
+                st.session_state['active_cols'].remove(df_var)            
+    
+    if 'lsr_button' not in st.session_state:
+        st.session_state['lsr_button'] = False
+
+    if st.button('Run least squares regression'):
+        st.session_state['lsr_button'] = True
+
+    if st.session_state['lsr_button']:
+        active_cols = st.session_state['active_cols']
+        df = df.loc[:, active_cols]
+        df = preprocess(df)
+        lsr(df, True)
