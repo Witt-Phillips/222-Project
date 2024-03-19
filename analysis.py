@@ -4,18 +4,41 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
+import plotly.figure_factory as ff
 
 #Read & drop unused columns
 df = pd.read_csv('data.csv')
 df.drop(['PassengerId', 'Name', 'Ticket', 'Cabin', 'Embarked'], axis=1, inplace=True)
 og_df = df
 
+vars = {
+        "Class (1-3)": "Pclass",
+        "Age (0-80)": "Age",
+        "\# of Siblings/Spouse Onboard (0-8)": "SibSp",
+        "\# of Parents/Children Onboard (0-6)": "Parch",
+        "Fare ($0-512)": "Fare"
+    }
+
+def select_features():
+    if 'active_cols' not in st.session_state:
+        st.session_state['active_cols'] = ['Survived']
+
+    for human_var, df_var in vars.items():
+        if st.checkbox(human_var, key=df_var):
+            if df_var not in st.session_state['active_cols']:
+                st.session_state['active_cols'].append(df_var)
+        else:
+            if df_var in st.session_state['active_cols']:
+                st.session_state['active_cols'].remove(df_var)
+    
+    return st.session_state['active_cols']
+
 def preprocess(data):
-    # Normalize continuous variables (if they exist)
-    to_normalize = ['Age', 'SibSp', 'Parch', 'Fare', 'PClass']
-    to_normalize = [c for c in to_normalize if c in data.columns]
-    if to_normalize:
-        data[to_normalize] = MinMaxScaler().fit_transform(data[to_normalize])  
+    # # Normalize continuous variables (if they exist)
+    # to_normalize = ['Age', 'SibSp', 'Parch', 'Fare', 'PClass']
+    # to_normalize = [c for c in to_normalize if c in data.columns]
+    # if to_normalize:
+    #     data[to_normalize] = MinMaxScaler().fit_transform(data[to_normalize])  
 
     #woman = 0, man = 1
     if 'Sex' in data.columns:
@@ -24,6 +47,8 @@ def preprocess(data):
     
     data = data.dropna(axis=0, how='any')
     return data
+
+def corr_plot():
 
 def lsr(data, predict):
     features = data.drop('Survived', axis=1)
@@ -57,14 +82,17 @@ def lsr(data, predict):
 
     #Survival Score Prediction
     st.header('Survival Score by Features')
-    st.write("Provide information on an individual to see their odds of survival on the Titanic.")
+    st.write("Provide information on an individual to see their odds of survival on the Titanic. Ranges from the dataset are provided for context, but you're welcome to explore parameters outside of these bounds.")
     
     if 'inputs' not in st.session_state:
         st.session_state['inputs'] = {}
 
     inputs = {}
+    inv_vars = {val: key for key, val in vars.items()}
+
     for col in features.columns:
-        st.session_state['inputs'][col] = st.number_input(f"Enter {col}: ", key=f"input_{col}", value=st.session_state['inputs'].get(col, 0))
+        name = inv_vars.get(col)
+        st.session_state['inputs'][col] = st.number_input(f"Enter {name}: ", key=f"input_{col}", value=st.session_state['inputs'].get(col, 0))
 
     if st.button('Predict'):
         inp_df = pd.DataFrame([st.session_state['inputs']])
@@ -86,27 +114,9 @@ if __name__ == '__main__':
     st.image("titanic_drawing.jpeg", caption="Titanic Sinking, Willy Stöwer. Wikimedia Commons.", use_column_width=True)
     st.write('The [Titanic](https://www.history.com/topics/early-20th-century-us/titanic#unsinkable-titanic-s-fatal-flaws), deemed "practically unsinkable" by experts, sunk in 1912. More than 1,500 of the 2,240 passengers onboard were lost. Here, we use passenger data to explore the factors that contributed to surival. Select features to see how well they predict survial via least squares regression.')
     # Select columns
-    vars = {
-        "Class": "Pclass",
-        "Age": "Age",
-        "\# of Siblings/Spouse Onboard": "SibSp",
-        "\# of Parents/Children Onboard": "Parch",
-        "Fare": "Fare"
-    }
+    st.header('Select features')            
+    active_cols = select_features()
 
-    st.header('Select features')
-
-    if 'active_cols' not in st.session_state:
-        st.session_state['active_cols'] = ['Survived']
-
-    for human_var, df_var in vars.items():
-        if st.checkbox(human_var, key=df_var):
-            if df_var not in st.session_state['active_cols']:
-                st.session_state['active_cols'].append(df_var)
-        else:
-            if df_var in st.session_state['active_cols']:
-                st.session_state['active_cols'].remove(df_var)            
-    
     if 'lsr_button' not in st.session_state:
         st.session_state['lsr_button'] = False
 
@@ -114,7 +124,6 @@ if __name__ == '__main__':
         st.session_state['lsr_button'] = True
 
     if st.session_state['lsr_button']:
-        active_cols = st.session_state['active_cols']
         df = df.loc[:, active_cols]
         df = preprocess(df)
         lsr(df, True)

@@ -6,14 +6,17 @@ date: "2024-03-18"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-#install.packages("readxl")
-#install.packages("ggplot2")
-
-library(readxl)
-library(ggplot2)
-
-df <- read_excel("dataset.xlsx")
-head(df)
+library(corrplot)
 ```
 
+
+```{r}
+data <- read.csv("data.csv")
+head(data)
+
+#correlation plot
+numeric_data <- data[, sapply(data, is.numeric)]
+matrix <- cor(numeric_data)
+corrplot(matrix, method = "color")
+```
 
