@@ -3,3 +3,4 @@ plotly==5.20.0
 scikit-learn==1.4.1.post1
 streamlit==1.32.2
 sympy==1.12
+matplotlib==3.8.3
