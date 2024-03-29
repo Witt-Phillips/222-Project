@@ -1,12 +1,17 @@
+import numpy as np
 import streamlit as st
 import pandas as pd
+import matplotlib
+import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 import plotly.figure_factory as ff
+import plotly.graph_objects as go
+from mpl_toolkits.mplot3d import Axes3D
 
-#Read & drop unused columns
+# Read & drop unused columns
 df = pd.read_csv('data.csv')
 df.drop(['PassengerId', 'Name', 'Ticket', 'Cabin', 'Embarked'], axis=1, inplace=True)
 og_df = df
@@ -31,16 +36,20 @@ def select_features():
             if df_var in st.session_state['active_cols']:
                 st.session_state['active_cols'].remove(df_var)
     
+    # Display information about 3D visualization
+    st.markdown('</br>', unsafe_allow_html=True)
+    st.info("INFO: On selecting any 2 parameters, a 3D visualization of the least squares algorithm is provided")
+
     return st.session_state['active_cols']
 
 def preprocess(data):
-    # # Normalize continuous variables (if they exist)
+    # Normalize continuous variables (if they exist)
     # to_normalize = ['Age', 'SibSp', 'Parch', 'Fare', 'PClass']
     # to_normalize = [c for c in to_normalize if c in data.columns]
     # if to_normalize:
     #     data[to_normalize] = MinMaxScaler().fit_transform(data[to_normalize])  
 
-    #woman = 0, man = 1
+    # woman = 0, man = 1
     if 'Sex' in data.columns:
         pd.set_option('future.no_silent_downcasting', True)
         data['Sex'] = data['Sex'].replace({'female': 0, 'male': 1})
@@ -69,20 +78,15 @@ def lsr(data, predict):
     features = data.drop('Survived', axis=1)
     target = data['Survived']
     
-    #split training/ testing sets 75/25
+    # split training/ testing sets 75/25
     f_train, f_test, t_train, t_test = train_test_split(features, target, test_size=0.25, random_state=1)
     
-    #Fit & evaluate model
+    # Fit & evaluate model
     m = LinearRegression()
     m.fit(f_train, t_train)
     pred = m.predict(f_test)    
     ms = mean_squared_error(t_test, pred)
     r2 = r2_score(t_test, pred)
-
-    # st.write('Features considered:')
-    # for colname in features.columns:
-    #     st.write(colname)
-    #st.write(f"Mean Squared Error: {round(ms, 2)}\nr2 score: {round(r2, 2)}")
 
     st.markdown(f"""
         <p style='font-size: 25px;'>
@@ -91,11 +95,7 @@ def lsr(data, predict):
         </p>
         """, unsafe_allow_html=True)
 
-#TODO: explain how we calculate/ interpret these values w/ linear algebra
-
-#TODO: on the right, we could plot correlations or the lsr
-
-    #Survival Score Prediction
+    # Survival Score Prediction
     st.header('Survival Score by Features')
     st.write("Provide information on an individual to see their odds of survival on the Titanic. Ranges from the dataset are provided for context, but you're welcome to explore parameters outside of these bounds.")
     
@@ -112,23 +112,63 @@ def lsr(data, predict):
     if st.button('Predict'):
         inp_df = pd.DataFrame([st.session_state['inputs']])
         output = m.predict(inp_df)
-        #st.write(f"Predicted survival value: {round(output[0], 2)}")
         st.markdown(f"""
         <p style='font-size: 25px;'>
             Predicted survival value: <strong>{round(output[0], 2)}</strong><br>
         </p>
         """, unsafe_allow_html=True)
     
-#TODO: interpret this prediction & explain what it means
+    # Plot 3D visualization if exactly 2 features are selected
+    if len(features.columns) == 2:
+        st.markdown('</br>', unsafe_allow_html=True)
         
-#TODO: maybe a little exploratory data section? Like do some examples and show how we can use
-#lsr to find variables that are predictive of survival?
+        import plotly.express as px
+
+        fig = px.scatter_3d(
+            x=f_test.iloc[:, 0], 
+            y=f_test.iloc[:, 1], 
+            z=pred,
+            labels={'x': features.columns[0], 'y': features.columns[1], 'z': 'Survival Probability'},
+            title='3D Scatter Plot',
+            opacity=0.7
+        )
+        
+        A, B, C = m.coef_[0], m.coef_[1], m.intercept_
+
+        # Create meshgrid
+        x_surf = np.linspace(f_test.iloc[:, 0].min(), f_test.iloc[:, 0].max(), 10)
+        y_surf = np.linspace(f_test.iloc[:, 1].min(), f_test.iloc[:, 1].max(), 10)
+        x_surf, y_surf = np.meshgrid(x_surf, y_surf)
+        z_surf = A * x_surf + B * y_surf + C
+
+        # Add plane to the plot
+        fig.add_trace(go.Surface(
+            x=x_surf, 
+            y=y_surf, 
+            z=z_surf,
+            colorscale='blues',
+            opacity=0.5,
+            name='Plane'
+        ))
+
+        # Set plot layout
+        fig.update_layout(
+            scene=dict(
+                xaxis_title=features.columns[0],
+                yaxis_title=features.columns[1],
+                zaxis_title='Survival Probability'
+            ),
+            title='Titanic Survival Probability Visualization'
+        )
+
+        # Show the plot
+        st.plotly_chart(fig, use_container_width=True, width=800, height=600)
 
 if __name__ == '__main__':
-    #Setup app
+    # Setup app
     st.title('The Unsinkable Ship: Who survived the Titanic?')
     st.image("titanic_drawing.jpeg", caption="Titanic Sinking, Willy Stöwer. Wikimedia Commons.", use_column_width=True)
-    st.write('The [Titanic](https://www.history.com/topics/early-20th-century-us/titanic#unsinkable-titanic-s-fatal-flaws), deemed "practically unsinkable" by experts, sunk in 1912. More than 1,500 of the 2,240 passengers onboard were lost. Here, we use passenger data to explore the factors that contributed to surival. Select features to see how well they predict survial via least squares regression.')
+    st.write('The [Titanic](https://www.history.com/topics/early-20th-century-us/titanic#unsinkable-titanic-s-fatal-flaws), deemed "practically unsinkable" by experts, sunk in 1912. More than 1,500 of the 2,240 passengers onboard were lost. Here, we use passenger data to explore the factors that contributed to survival. Select features to see how well they predict survival via least squares regression.')
     
     # Select columns
     st.header('Select features')            
@@ -140,12 +180,12 @@ if __name__ == '__main__':
     if st.button('Run least squares regression'):
         st.session_state['lsr_button'] = True
 
-    #Process data, plot, and start lsr module
+    # Process data, plot, and start lsr module
     if st.session_state['lsr_button']:
         df = df.loc[:, active_cols]
         df = preprocess(df)
 
-        #Plot heatmap
+        # Plot heatmap
         st.plotly_chart(corr_plot(df))
 
         lsr(df, True)
