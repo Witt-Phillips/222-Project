@@ -10,6 +10,8 @@ from sklearn.metrics import mean_squared_error, r2_score
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
 from mpl_toolkits.mplot3d import Axes3D
+from sympy import Symbol, Eq, latex
+
 
 # Read & drop unused columns
 df = pd.read_csv('data.csv')
@@ -164,6 +166,33 @@ def lsr(data, predict):
         # Show the plot
         st.plotly_chart(fig, use_container_width=True, width=800, height=600)
 
+def description():
+    # Display mathematical formulation using LaTeX
+    st.markdown('</br></br>', unsafe_allow_html=True)
+    st.header('Linear Regression (Fix)')
+
+    st.markdown(r'''
+    **Least Squares Algorithm Overview:**
+    $$\min_{\beta} \sum_{i=1}^{n} (y_i - X_i \cdot \beta)^2$$
+
+    The least squares algorithm minimizes the sum of squared errors between predicted (\(y_i\)) and actual (\(X_i \cdot \beta\)) values.
+
+    **Application to Titanic Data:**
+
+    1. **Data Preprocessing**: Handle missing values, encode categorical variables, and normalize features if necessary.
+
+    2. **Feature Selection**: Choose features like class, age, siblings/spouses, parents/children, and fare.
+
+    3. **Model Fitting**: Split data, fit a linear regression model, and evaluate using metrics like Mean Squared Error (MSE) and \( R^2 \) score.
+    $$ MSE = \frac{1}{n} \sum_{i=1}^{n} (y_i - \hat{y_i})^2 $$
+    $$ R^2 = 1 - \frac{\sum_{i=1}^{n} (y_i - \hat{y_i})^2}{\sum_{i=1}^{n} (y_i - \bar{y})^2} $$
+
+    4. **Prediction**: Predict survival probability based on user inputs.
+
+    5. **Visualization**: Plot data points and the fitted plane in a 3D scatter plot.
+    ''')
+
+
 if __name__ == '__main__':
     # Setup app
     st.title('The Unsinkable Ship: Who survived the Titanic?')
@@ -189,3 +218,5 @@ if __name__ == '__main__':
         st.plotly_chart(corr_plot(df))
 
         lsr(df, True)
+    
+    description()
