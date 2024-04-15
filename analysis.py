@@ -14,21 +14,19 @@ from sympy import Symbol, Eq, latex
 
 
 # Read & drop unused columns
-df = pd.read_csv('data.csv')
-df.drop(['PassengerId', 'Name', 'Ticket', 'Cabin', 'Embarked'], axis=1, inplace=True)
-og_df = df
-
+df = pd.read_csv('insurance.csv')
+df.drop(columns=['region'])
 vars = {
-        "Class (1-3)": "Pclass",
-        "Age (0-80)": "Age",
-        "\# of Siblings/Spouse Onboard (0-8)": "SibSp",
-        "\# of Parents/Children Onboard (0-6)": "Parch",
-        "Fare ($0-512)": "Fare"
+        "Age": "age",
+        "Sex (Biological)": "sex",
+        "BMI": "bmi",
+        "\# of Children": "children",
+        "Smoker": "smoker",
     }
 
 def select_features():
     if 'active_cols' not in st.session_state:
-        st.session_state['active_cols'] = ['Survived']
+        st.session_state['active_cols'] = ['charges']
 
     for human_var, df_var in vars.items():
         if st.checkbox(human_var, key=df_var):
@@ -40,22 +38,16 @@ def select_features():
     
     # Display information about 3D visualization
     st.markdown('</br>', unsafe_allow_html=True)
-    st.info("INFO: On selecting any 2 parameters, a 3D visualization of the least squares algorithm is provided")
+    st.info("On selecting any 2 parameters, a 3D visualization of the least squares algorithm is provided")
 
     return st.session_state['active_cols']
 
 def preprocess(data):
-    # Normalize continuous variables (if they exist)
-    # to_normalize = ['Age', 'SibSp', 'Parch', 'Fare', 'PClass']
-    # to_normalize = [c for c in to_normalize if c in data.columns]
-    # if to_normalize:
-    #     data[to_normalize] = MinMaxScaler().fit_transform(data[to_normalize])  
+    if 'sex' in data.columns:
+        data['sex'] = data['sex'].map({'male': 0, 'female': 1})
+    if 'smoker' in data.columns:
+        data['smoker'] = data['smoker'].map({'no': 0, 'yes': 1})
 
-    # woman = 0, man = 1
-    if 'Sex' in data.columns:
-        pd.set_option('future.no_silent_downcasting', True)
-        data['Sex'] = data['Sex'].replace({'female': 0, 'male': 1})
-    
     data = data.dropna(axis=0, how='any')
     return data
 
@@ -77,8 +69,8 @@ def corr_plot(data):
     return figure
 
 def lsr(data, predict):
-    features = data.drop('Survived', axis=1)
-    target = data['Survived']
+    features = data.drop('charges', axis=1)
+    target = data['charges']
     
     # split training/ testing sets 75/25
     f_train, f_test, t_train, t_test = train_test_split(features, target, test_size=0.25, random_state=1)
@@ -90,16 +82,16 @@ def lsr(data, predict):
     ms = mean_squared_error(t_test, pred)
     r2 = r2_score(t_test, pred)
 
+    # Mean Squared Error: <strong>{round(ms, 2)}</strong><br>
     st.markdown(f"""
         <p style='font-size: 25px;'>
-            Mean Squared Error: <strong>{round(ms, 2)}</strong><br>
             r<sup>2</sup> score: <strong>{round(r2, 2)}</strong>
         </p>
         """, unsafe_allow_html=True)
 
     # Survival Score Prediction
-    st.header('Survival Score by Features')
-    st.write("Provide information on an individual to see their odds of survival on the Titanic. Ranges from the dataset are provided for context, but you're welcome to explore parameters outside of these bounds.")
+    st.header('Predicted Cost by Features')
+    st.write("Provide information on an individual to see their predicted insurance costs. Ranges from the dataset are provided for context, but you're welcome to explore parameters outside of these bounds.")
     
     if 'inputs' not in st.session_state:
         st.session_state['inputs'] = {}
@@ -116,7 +108,7 @@ def lsr(data, predict):
         output = m.predict(inp_df)
         st.markdown(f"""
         <p style='font-size: 25px;'>
-            Predicted survival value: <strong>{round(output[0], 2)}</strong><br>
+            Predicted costs: <strong>{round(output[0], 2)}</strong><br>
         </p>
         """, unsafe_allow_html=True)
     
@@ -127,10 +119,10 @@ def lsr(data, predict):
         import plotly.express as px
 
         fig = px.scatter_3d(
-            x=f_test.iloc[:, 0], 
-            y=f_test.iloc[:, 1], 
-            z=pred,
-            labels={'x': features.columns[0], 'y': features.columns[1], 'z': 'Survival Probability'},
+            x=features.iloc[:, 0], 
+            y=features.iloc[:, 1], 
+            z=target,
+            labels={'x': features.columns[0], 'y': features.columns[1], 'z': 'Predicted Costs'},
             title='3D Scatter Plot',
             opacity=0.7
         )
@@ -138,8 +130,8 @@ def lsr(data, predict):
         A, B, C = m.coef_[0], m.coef_[1], m.intercept_
 
         # Create meshgrid
-        x_surf = np.linspace(f_test.iloc[:, 0].min(), f_test.iloc[:, 0].max(), 10)
-        y_surf = np.linspace(f_test.iloc[:, 1].min(), f_test.iloc[:, 1].max(), 10)
+        x_surf = np.linspace(features.iloc[:, 0].min(), features.iloc[:, 0].max(), 10)
+        y_surf = np.linspace(features.iloc[:, 1].min(), features.iloc[:, 1].max(), 10)
         x_surf, y_surf = np.meshgrid(x_surf, y_surf)
         z_surf = A * x_surf + B * y_surf + C
 
@@ -158,9 +150,13 @@ def lsr(data, predict):
             scene=dict(
                 xaxis_title=features.columns[0],
                 yaxis_title=features.columns[1],
-                zaxis_title='Survival Probability'
+                zaxis_title='Predicted Costs',
+
+                xaxis_range=[features.iloc[:, 0].min(), features.iloc[:, 0].max()],
+                yaxis_range=[features.iloc[:, 1].min(), features.iloc[:, 1].max()],
+                zaxis_range=[target.min(), target.max()],
             ),
-            title='Titanic Survival Probability Visualization'
+            title='Predicted Insurance Costs Visualization'
         )
 
         # Show the plot
@@ -177,7 +173,7 @@ def description():
 
     The least squares algorithm minimizes the sum of squared errors between predicted (\(y_i\)) and actual (\(X_i \cdot \beta\)) values.
 
-    **Application to Titanic Data:**
+    **Application to Insurance Data:**
 
     1. **Data Preprocessing**: Handle missing values, encode categorical variables, and normalize features if necessary.
 
@@ -194,12 +190,10 @@ def description():
 
 
 if __name__ == '__main__':
-    # Setup app
-    st.title('The Unsinkable Ship: Who survived the Titanic?')
-    st.image("titanic_drawing.jpeg", caption="Titanic Sinking, Willy Stöwer. Wikimedia Commons.", use_column_width=True)
-    st.write('The [Titanic](https://www.history.com/topics/early-20th-century-us/titanic#unsinkable-titanic-s-fatal-flaws), deemed "practically unsinkable" by experts, sunk in 1912. More than 1,500 of the 2,240 passengers onboard were lost. Here, we use passenger data to explore the factors that contributed to survival. Select features to see how well they predict survival via least squares regression.')
-    
-    # Select columns
+    st.title('Insurance Cost: What we\'re really paying for')
+    st.image("header.png", use_column_width=True)
+    st.write("Use the interactive tools below to model how various features predict insurance costs for individuals in the USA.")
+
     st.header('Select features')            
     active_cols = select_features()
 
@@ -209,12 +203,10 @@ if __name__ == '__main__':
     if st.button('Run least squares regression'):
         st.session_state['lsr_button'] = True
 
-    # Process data, plot, and start lsr module
     if st.session_state['lsr_button']:
         df = df.loc[:, active_cols]
         df = preprocess(df)
 
-        # Plot heatmap
         st.plotly_chart(corr_plot(df))
 
         lsr(df, True)
