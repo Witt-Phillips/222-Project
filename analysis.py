@@ -14,19 +14,20 @@ from sympy import Symbol, Eq, latex
 
 
 # Read & drop unused columns
-df = pd.read_csv('insurance.csv')
-df.drop(columns=['region'])
+df = pd.read_csv('happiness.csv')
+df.drop(columns=['upperwhisker', 'lowerwhisker', 'Dystopia + residual'])
 vars = {
-        "Age": "age",
-        "Sex (Biological)": "sex",
-        "BMI": "bmi",
-        "\# of Children": "children",
-        "Smoker": "smoker",
+        "GDP per capita": "Explained by: Log GDP per capita",
+        "Social Support": "Explained by: Social support",
+        "Life Expectancy": "Explained by: Healthy life expectancy",
+        "Freedom of Choice": "Explained by: Freedom to make life choices",
+        "Generosity": "Explained by: Generosity",
+        "Perceived Corruption": "Explained by: Perceptions of corruption"
     }
 
 def select_features():
     if 'active_cols' not in st.session_state:
-        st.session_state['active_cols'] = ['charges']
+        st.session_state['active_cols'] = ['Ladder score']
 
     for human_var, df_var in vars.items():
         if st.checkbox(human_var, key=df_var):
@@ -43,11 +44,6 @@ def select_features():
     return st.session_state['active_cols']
 
 def preprocess(data):
-    if 'sex' in data.columns:
-        data['sex'] = data['sex'].map({'male': 0, 'female': 1})
-    if 'smoker' in data.columns:
-        data['smoker'] = data['smoker'].map({'no': 0, 'yes': 1})
-
     data = data.dropna(axis=0, how='any')
     return data
 
@@ -69,8 +65,8 @@ def corr_plot(data):
     return figure
 
 def lsr(data, predict):
-    features = data.drop('charges', axis=1)
-    target = data['charges']
+    features = data.drop('Ladder score', axis=1)
+    target = data['Ladder score']
     
     # split training/ testing sets 75/25
     f_train, f_test, t_train, t_test = train_test_split(features, target, test_size=0.25, random_state=1)
@@ -90,9 +86,8 @@ def lsr(data, predict):
         """, unsafe_allow_html=True)
 
     # Survival Score Prediction
-    st.header('Predicted Cost by Features')
-    st.write("Provide information on an individual to see their predicted insurance costs. Ranges from the dataset are provided for context, but you're welcome to explore parameters outside of these bounds.")
-    
+    st.header('Predicted Happiness by Features')
+    st.write('Provide values between 0-2 to test how the quality of various features impact happiness.')    
     if 'inputs' not in st.session_state:
         st.session_state['inputs'] = {}
 
@@ -108,7 +103,7 @@ def lsr(data, predict):
         output = m.predict(inp_df)
         st.markdown(f"""
         <p style='font-size: 25px;'>
-            Predicted costs: <strong>{round(output[0], 2)}</strong><br>
+            Predicted happiness index: <strong>{round(output[0], 2)}</strong><br>
         </p>
         """, unsafe_allow_html=True)
     
@@ -122,7 +117,7 @@ def lsr(data, predict):
             x=features.iloc[:, 0], 
             y=features.iloc[:, 1], 
             z=target,
-            labels={'x': features.columns[0], 'y': features.columns[1], 'z': 'Predicted Costs'},
+            labels={'x': features.columns[0], 'y': features.columns[1], 'z': 'Predicted Happiness (1-10)'},
             title='3D Scatter Plot',
             opacity=0.7
         )
@@ -150,13 +145,13 @@ def lsr(data, predict):
             scene=dict(
                 xaxis_title=features.columns[0],
                 yaxis_title=features.columns[1],
-                zaxis_title='Predicted Costs',
+                zaxis_title='Predicted Happiness',
 
                 xaxis_range=[features.iloc[:, 0].min(), features.iloc[:, 0].max()],
                 yaxis_range=[features.iloc[:, 1].min(), features.iloc[:, 1].max()],
                 zaxis_range=[target.min(), target.max()],
             ),
-            title='Predicted Insurance Costs Visualization'
+            title='Predicted Happiness Visualization'
         )
 
         # Show the plot
@@ -173,7 +168,7 @@ def description():
 
     The least squares algorithm minimizes the sum of squared errors between predicted (\(y_i\)) and actual (\(X_i \cdot \beta\)) values.
 
-    **Application to Insurance Data:**
+    **Application to Happiness Data:**
 
     1. **Data Preprocessing**: Handle missing values, encode categorical variables, and normalize features if necessary.
 
@@ -190,9 +185,9 @@ def description():
 
 
 if __name__ == '__main__':
-    st.title('Insurance Cost: What we\'re really paying for')
-    st.image("header.png", use_column_width=True)
-    st.write("Use the interactive tools below to model how various features predict insurance costs for individuals in the USA.")
+    st.title('The Happiness Formula: What features predict a country\'s happiness?')
+    st.image("img.png", caption="Attribution: Robert Collins, \"Football outside Jakarta\"", use_column_width=True)
+    st.write("Use the interactive tools below to model how various features predict happiness worldwide.")
 
     st.header('Select features')            
     active_cols = select_features()
